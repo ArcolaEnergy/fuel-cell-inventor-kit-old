@@ -28,9 +28,11 @@
 
 //timing defs
 #define PREPURGE 200 //to ensure we don't purge while shorting!
-#define ELECT_INTERVAL 500 //how often to blink the led
+#define ELECT_INTERVAL 100 //how often to sample electrical 
+#define BLINK_INTERVAL 500 //how often to sample electrical 
 
-#define SUPPLYMV 5040.0 //for better ADC accuracy, measure your 5v and put here in millivolts (.0 is important at end)
+#define FILTER 0.9 //coefficient for LPF on current sense
+#define DEFAULTSUPPLYMV 5000.0 //for better ADC accuracy, measure your 5v and put here in millivolts (.0 is important at end)
 #define CAP_V 800
 
 //digital IO pins
@@ -48,6 +50,7 @@
 class h2mdk
 {
   public:
+    h2mdk(int version, int supplyMV);
     h2mdk(int version);
     void poll();
     void status();
@@ -55,6 +58,7 @@ class h2mdk
     float getCurrent();
     void start();
   private:
+    void _init(int version, int supplyMV );
     int _version;
     bool _ledstate;
     bool _ni(bool);
@@ -73,9 +77,12 @@ class h2mdk
     unsigned int _purgeTime;
     //for doing the timing
     unsigned int _shortCircuitTimer;
+    unsigned int _electTimer;
     unsigned long _purgeTimer;
     unsigned int _statusTimer;
     unsigned int _lastPoll;
+    float _filteredRawCurrent;
+    float _supplyMV;
 };
 
 #endif
