@@ -34,14 +34,31 @@
 
 h2mdk::h2mdk(int version)
 {
+  _init(version, DEFAULTSUPPLYMV);
+}
+h2mdk::h2mdk(int version, int supplyMV)
+{
+  _init(version, supplyMV );
+}
+
+void h2mdk::_init(int version, int supplyMV)
+{
   _version = version;
+  _shortCircuitTimer = 0;
+  _purgeTimer = 0;
+  _electTimer = 0;
+  _statusTimer = 0;
+  _supplyMV = supplyMV;
+
+  _filteredRawCurrent = 512; //should be at zero A (ie 2.5v) to start with
 
   pinMode(STATUS_LED, OUTPUT);
 
   if( _version == V3W )
   {
     pinMode( LOAD, OUTPUT );
-    digitalWrite( LOAD, _ni(LOW) );
+    //connect the load to charge the caps
+    digitalWrite( LOAD, _ni(HIGH) );
   }
   else if( _version == V12W || _version == V30W )
   {
@@ -67,6 +84,9 @@ void h2mdk::start()
     Serial.println( "12W" );
   else if( _version == V30W )
     Serial.println( "30W" );
+
+  Serial.print("supply mV set to " );
+  Serial.println( _supplyMV );
 
   Serial.print("Short-circuit: ");
   Serial.print(_shortTime);
@@ -107,18 +127,23 @@ void h2mdk::poll()
   int interval = millis() - _lastPoll;
   _lastPoll = millis();
 
+  _electTimer += interval;
   _statusTimer += interval;
   _purgeTimer += interval;
   _shortCircuitTimer += interval;
 
   _lastPoll = millis();
 
-  if( _statusTimer > ELECT_INTERVAL )
+  if( _statusTimer > BLINK_INTERVAL )
   {
     _blink();
-    _updateElect();
     status();
     _statusTimer = 0;
+  }
+  if( _electTimer > ELECT_INTERVAL )
+  {
+    _updateElect();
+    _electTimer = 0;
   }
   if( _shortCircuitTimer > _shortCircuitInterval )
   {
@@ -139,20 +164,40 @@ void h2mdk::_checkCaps()
   {
     Serial.println( analogRead( CAP_V_SENSE ) );
     _blink();
-    delay(100);
+    delay(200);
   }
   Serial.println( "CHARGED" );
 }
 
 void h2mdk::_updateElect()
 {
+  //voltage
   float rawStackV = analogRead(VOLTAGE_SENSE );
-  float stackVoltage = (326.00/100.00)*(SUPPLYMV/1024*rawStackV); // R1=226k R2=100k
+  float stackVoltage;
+  if( _version == V3W )
+  {
+    stackVoltage = (_supplyMV/1024*rawStackV); 
+  }
+  else //for 12 and 30W
+  {
+    stackVoltage = (326.00/100.00)*(_supplyMV/1024*rawStackV); // R1=226k R2=100k
+  }
+
   _voltage = stackVoltage/1000;
 
-  float rawCurrent = analogRead(CURRENT_SENSE );
-  float currentMV = (SUPPLYMV / 1024 ) * rawCurrent;
-  _current = ( currentMV - SUPPLYMV / 2 ) / 185; //185mv per amp
+  //current
+
+  //100 times average of current. Necessary as so much switching noise on the signal.
+  _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
+
+  float currentMV = (_supplyMV / 1024 ) * _filteredRawCurrent;
+  if( _version == V3W )
+    //current sense chip is powered from 5v regulator, so this should always be 2500
+    _current = ( currentMV - 2500 ) / 185; //185mv per amp
+  else
+    //current sense chip is powered by arduino supply
+    _current = ( currentMV - _supplyMV / 2 ) / 185; //185mv per amp
+
 }
 
 
@@ -221,30 +266,26 @@ Short circuit: 100ms every 10s
 */
 void h2mdk::_setupTimings(int version)
 {
-  _shortCircuitTimer = 0;
-  _purgeTimer = 0;
-  _statusTimer = 0;
-
   // all in ms
   if( version == V3W )
   {
     _shortCircuitInterval = 10000;
     _shortTime = 100;
-    _purgeInterval = 460000;
+    _purgeInterval = 60000; //240000;
     _purgeTime = 100;
   }
   else if( version == V12W )
   {
-    _shortCircuitInterval = 10 * 1000;
+    _shortCircuitInterval = 10000;
     _shortTime = 100;
-    _purgeInterval = 25 * 10;
+    _purgeInterval = 25000;
     _purgeTime = 50;
   }
   else if( version == V30W )
   {
-    _shortCircuitInterval = 10 * 1000;
+    _shortCircuitInterval = 10000;
     _shortTime = 100;
-    _purgeInterval = 10 * 1000;
+    _purgeInterval = 10000;
     _purgeTime = 50;
   }
 }
