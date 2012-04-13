@@ -80,7 +80,7 @@ class h2mdk
     unsigned int _electTimer;
     unsigned long _purgeTimer;
     unsigned int _statusTimer;
-    unsigned int _lastPoll;
+    unsigned long _lastPoll;
     float _filteredRawCurrent;
     float _supplyMV;
 };
