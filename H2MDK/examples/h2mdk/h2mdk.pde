@@ -6,9 +6,9 @@ http://www.arcolaenergy.com/h2mdk
 
 #include <h2mdk.h>
 
-//pass V3W, V12W or V30W depending on your board and fuelcell
+//pass V1_5W, V3W, V12W or V30W depending on your board and fuelcell
 //for greater accuracy set second argument to arduino +5V in mV
-h2mdk fuelcell(V3W,5000); 
+h2mdk fuelcell(V1_5W,5000); 
 
 void setup()
 {
