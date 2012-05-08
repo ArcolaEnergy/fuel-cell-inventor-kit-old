@@ -22,9 +22,10 @@
 #define h2mdk_h
 
 //version types
-#define V3W 1
-#define V12W 2
-#define V30W 3
+#define V1_5W 1
+#define V3W 2
+#define V12W 3
+#define V30W 4
 
 //timing defs
 #define PREPURGE 200 //to ensure we don't purge while shorting!
@@ -70,6 +71,7 @@ class h2mdk
     void _blink();
     void _checkCaps();
     void _setupTimings(int version);
+    void _overloadCutout();
     //time vars
     unsigned int _shortCircuitInterval;
     unsigned int _shortTime;
@@ -83,6 +85,7 @@ class h2mdk
     unsigned long _lastPoll;
     float _filteredRawCurrent;
     float _supplyMV;
+    float _cutoutVoltage;
 };
 
 #endif

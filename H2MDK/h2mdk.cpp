@@ -26,12 +26,6 @@
 #include <WProgram.h> 
 #endif
 
-//timed actions
-//TimedAction statusAction = TimedAction(500,status);
-//TimedAction shortAction = TimedAction(_shortCircuitInterval*1000,shortC);
-//TimedAction purgeAction = TimedAction(_purgeInterval*1000,purge);
-
-
 h2mdk::h2mdk(int version)
 {
   _init(version, DEFAULTSUPPLYMV);
@@ -155,9 +149,28 @@ void h2mdk::poll()
     _purge();
     _purgeTimer = 0;
   }
+
+  //as 3W version has no fuse, do we need to disconnect the load?
+  if( _version == V3W )
+    _overloadCutout();
 }
 
 //private functions
+void h2mdk::_overloadCutout()
+{
+    if( _voltage < _cutoutVoltage )
+    {
+        //disconnect load
+        digitalWrite( LOAD, _ni( LOW ) );
+        Serial.println( "stack voltage too low: disconnected load" );
+        delay(1000);
+    }
+    else
+    {
+        digitalWrite( LOAD, _ni( HIGH ) );
+    }
+}
+
 void h2mdk::_checkCaps()
 {
   while( analogRead( CAP_V_SENSE ) < CAP_V )
@@ -267,12 +280,21 @@ Short circuit: 100ms every 10s
 void h2mdk::_setupTimings(int version)
 {
   // all in ms
+  if( version == V1_5W )
+  {
+    _shortCircuitInterval = 10000;
+    _shortTime = 100;
+    _purgeInterval = 60000; //240000;
+    _purgeTime = 100;
+    _cutoutVoltage = 0.6;
+  }
   if( version == V3W )
   {
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 60000; //240000;
     _purgeTime = 100;
+    _cutoutVoltage = 1.1;
   }
   else if( version == V12W )
   {
