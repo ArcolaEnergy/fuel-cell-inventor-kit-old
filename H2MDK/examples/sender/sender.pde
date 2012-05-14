@@ -24,6 +24,8 @@ byte needToSend;
 #include <OneWire.h>
 OneWire  ds(8);  // on pin 8
 
+#define LED 9
+
 //payload def
 typedef struct {
   float celsius;
@@ -37,6 +39,7 @@ Payload payload;
 void setup()
 {
   Serial.begin(57600);
+  pinMode(LED,OUTPUT);
   //this blocks until caps are charged
   fuelcell.start();
 
@@ -71,10 +74,13 @@ void loop()
 
   if (needToSend && rf12_canSend())
   {
+    digitalWrite(LED,HIGH);
     needToSend = 0;
     //broadcast
     rf12_sendStart(0, &payload, sizeof payload);
     Serial.println("sent");
+    delay(100);
+    digitalWrite(LED,LOW);
   }
 }
 
