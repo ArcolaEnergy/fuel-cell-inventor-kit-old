@@ -28,27 +28,27 @@
 
 h2mdk::h2mdk(int version)
 {
-  _init(version, DEFAULTSUPPLYMV);
+  _init(version, DEFAULTBANDGAP);
 }
-h2mdk::h2mdk(int version, int supplyMV)
+h2mdk::h2mdk(int version, int bandGap)
 {
-  _init(version, supplyMV );
+  _init(version, bandGap );
 }
 
-void h2mdk::_init(int version, int supplyMV)
+void h2mdk::_init(int version, int bandGap)
 {
   _version = version;
   _shortCircuitTimer = 0;
   _purgeTimer = 0;
   _electTimer = 0;
   _statusTimer = 0;
-  _supplyMV = supplyMV;
+  _bandGap = bandGap;
 
   _filteredRawCurrent = 512; //should be at zero A (ie 2.5v) to start with
 
   pinMode(STATUS_LED, OUTPUT);
 
-  if( _version == V3W )
+  if( _version == V3W || _version == V1_5W )
   {
     pinMode( LOAD, OUTPUT );
     //connect the load to charge the caps
@@ -72,6 +72,8 @@ void h2mdk::_init(int version, int supplyMV)
 void h2mdk::start()
 {
   Serial.print( "ArcolaEnergy fuel cell controller for " );
+  if( _version == V1_5W )
+    Serial.println( "1.5W" );
   if( _version == V3W )
     Serial.println( "3W" );
   else if( _version == V12W )
@@ -79,8 +81,8 @@ void h2mdk::start()
   else if( _version == V30W )
     Serial.println( "30W" );
 
-  Serial.print("supply mV set to " );
-  Serial.println( _supplyMV );
+  Serial.print("bandgap mV set to " );
+  Serial.println( _bandGap );
 
   Serial.print("Short-circuit: ");
   Serial.print(_shortTime);
@@ -151,7 +153,7 @@ void h2mdk::poll()
   }
 
   //as 3W version has no fuse, do we need to disconnect the load?
-  if( _version == V3W )
+  if( _version == V3W || _version == V1_5W )
     _overloadCutout();
 }
 
@@ -184,17 +186,16 @@ void h2mdk::_checkCaps()
 
 void h2mdk::_updateElect()
 {
+  float supplyMV = _vccRead();
   //voltage
   float rawStackV = analogRead(VOLTAGE_SENSE );
+  //Serial.println( rawStackV);
   float stackVoltage;
-  if( _version == V3W )
-  {
-    stackVoltage = (_supplyMV/1024*rawStackV); 
-  }
-  else //for 12 and 30W
-  {
-    stackVoltage = (326.00/100.00)*(_supplyMV/1024*rawStackV); // R1=226k R2=100k
-  }
+  if( _version == V3W || _version == V1_5W )
+    stackVoltage = (supplyMV/1024*rawStackV); 
+  //for 12 and 30W
+  else if( _version == V12W || _version == V30W )
+    stackVoltage = (326.00/100.00)*(supplyMV/1024*rawStackV); // R1=226k R2=100k
 
   _voltage = stackVoltage/1000;
 
@@ -202,14 +203,13 @@ void h2mdk::_updateElect()
 
   //100 times average of current. Necessary as so much switching noise on the signal.
   _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
-
-  float currentMV = (_supplyMV / 1024 ) * _filteredRawCurrent;
-  if( _version == V3W )
-    //current sense chip is powered from 5v regulator, so this should always be 2500
-    _current = ( currentMV - 2500 ) / 185; //185mv per amp
-  else
+  float currentMV = (supplyMV / 1024 ) * _filteredRawCurrent;
+  if( _version == V3W || _version == V1_5W )
+    //current sense chip is powered from 5v regulator
+    _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
+  else if( _version == V12W || _version == V30W )
     //current sense chip is powered by arduino supply
-    _current = ( currentMV - _supplyMV / 2 ) / 185; //185mv per amp
+    _current = ( currentMV - supplyMV / 2 ) / 185; //185mv per amp
 
 }
 
@@ -231,7 +231,7 @@ void h2mdk::_shortCircuit()
     return;
   }
 
-  if( _version == V3W )
+  if( _version == V3W || _version == V1_5W )
     //disconnect load
     digitalWrite( LOAD, _ni(LOW) );
 
@@ -241,7 +241,7 @@ void h2mdk::_shortCircuit()
   delay(_shortTime);
   digitalWrite( SHORT, _ni(LOW) );
   
-  if( _version == V3W )
+  if( _version == V3W || _version == V1_5W )
     //reconnect
     digitalWrite( LOAD, _ni(HIGH) );
 }
@@ -249,18 +249,16 @@ void h2mdk::_shortCircuit()
 //utility to invert the mosfet pins for the 12 and 30W control boards
 bool h2mdk::_ni(bool state)
 {
-  if( _version == V3W )
+  if( _version == V3W || _version == V1_5W )
     return state;
-  if( _version == V12W )
-    return ! state;
-  if( _version == V30W )
+  if( _version == V12W || _version == V30W )
     return ! state;
 }
 
 //blink the status led
 void h2mdk::_blink()
 {
-  digitalWrite(STATUS_LED, _ledstate );
+//  digitalWrite(STATUS_LED, _ledstate );
   _ledstate = ! _ledstate;
 }
 
@@ -311,3 +309,17 @@ void h2mdk::_setupTimings(int version)
     _purgeTime = 50;
   }
 }
+
+//measure VCC
+//needs accurate bandgap
+int h2mdk::_vccRead()
+{
+  analogRead(6);
+  bitSet(ADMUX,3);
+  delayMicroseconds(550);
+  bitSet(ADCSRA, ADSC );
+  while( bit_is_set(ADCSRA,ADSC));
+  word x = ADC;
+  return x ? (_bandGap * 1023L) / x : -1; 
+}
+
