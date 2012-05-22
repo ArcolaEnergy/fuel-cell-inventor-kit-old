@@ -312,6 +312,8 @@ void h2mdk::_setupTimings(int version)
 
 //measure VCC
 //needs accurate bandgap
+//thanks to JeeLabs for this
+//http://jeelabs.org/2012/05/04/measuring-vcc-via-the-bandgap/
 int h2mdk::_vccRead()
 {
   analogRead(6);
