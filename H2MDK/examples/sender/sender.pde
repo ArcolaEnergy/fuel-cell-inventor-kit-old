@@ -13,7 +13,7 @@ http://www.arcolaenergy.com/h2mdk
 
 //for fuel cell power
 #include <h2mdk.h>
-h2mdk fuelcell(V3W,5000); 
+h2mdk fuelcell(V3W); 
 
 //for radio
 #include <JeeLib.h>
