@@ -33,7 +33,8 @@
 #define BLINK_INTERVAL 500 //how often to sample electrical 
 
 #define FILTER 0.9 //coefficient for LPF on current sense
-#define DEFAULTSUPPLYMV 5000.0 //for better ADC accuracy, measure your 5v and put here in millivolts (.0 is important at end)
+//band gap can be measured like this: http://bit.ly/KQmkma
+#define DEFAULTBANDGAP 1100 //for better ADC accuracy, pass your bandgap to constructor
 #define CAP_V 800
 
 //digital IO pins
@@ -51,7 +52,7 @@
 class h2mdk
 {
   public:
-    h2mdk(int version, int supplyMV);
+    h2mdk(int version, int bandGap);
     h2mdk(int version);
     void poll();
     void status();
@@ -59,7 +60,8 @@ class h2mdk
     float getCurrent();
     void start();
   private:
-    void _init(int version, int supplyMV );
+    void _init(int version, int bandGap );
+    int _vccRead();
     int _version;
     bool _ledstate;
     bool _ni(bool);
@@ -84,7 +86,7 @@ class h2mdk
     unsigned int _statusTimer;
     unsigned long _lastPoll;
     float _filteredRawCurrent;
-    float _supplyMV;
+    int _bandGap;
     float _cutoutVoltage;
 };
 
