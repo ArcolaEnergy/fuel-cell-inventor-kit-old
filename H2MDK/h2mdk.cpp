@@ -186,10 +186,11 @@ void h2mdk::_checkCaps()
 
 void h2mdk::_updateElect()
 {
+  //read this to get more accurate ADC readings. As load increases, supplyMV drops. So we read the supplyMV before doing our other measurements.
   float supplyMV = _vccRead();
+
   //voltage
   float rawStackV = analogRead(VOLTAGE_SENSE );
-  //Serial.println( rawStackV);
   float stackVoltage;
   if( _version == V3W || _version == V1_5W )
     stackVoltage = (supplyMV/1024*rawStackV); 
@@ -200,8 +201,7 @@ void h2mdk::_updateElect()
   _voltage = stackVoltage/1000;
 
   //current
-
-  //100 times average of current. Necessary as so much switching noise on the signal.
+  //100 times average of current. 
   _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
   float currentMV = (supplyMV / 1024 ) * _filteredRawCurrent;
   if( _version == V3W || _version == V1_5W )
@@ -258,7 +258,7 @@ bool h2mdk::_ni(bool state)
 //blink the status led
 void h2mdk::_blink()
 {
-//  digitalWrite(STATUS_LED, _ledstate );
+  digitalWrite(STATUS_LED, _ledstate );
   _ledstate = ! _ledstate;
 }
 
