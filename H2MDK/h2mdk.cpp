@@ -206,7 +206,7 @@ void h2mdk::_updateElect()
   float currentMV = (supplyMV / 1024 ) * _filteredRawCurrent;
   if( _version == V3W || _version == V1_5W )
     //current sense chip is powered from 5v regulator
-    _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
+    _current = ( currentMV - 5040 / 2 ) / 185; //185mv per amp
   else if( _version == V12W || _version == V30W )
     //current sense chip is powered by arduino supply
     _current = ( currentMV - supplyMV / 2 ) / 185; //185mv per amp
