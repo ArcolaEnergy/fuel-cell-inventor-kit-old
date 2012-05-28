@@ -29,7 +29,7 @@
 
 //timing defs
 #define PREPURGE 200 //to ensure we don't purge while shorting!
-#define ELECT_INTERVAL 100 //how often to sample electrical 
+#define ELECT_INTERVAL 400 //how often to sample electrical 
 #define BLINK_INTERVAL 500 //how often to sample electrical 
 
 #define FILTER 0.9 //coefficient for LPF on current sense
