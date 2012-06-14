@@ -57,6 +57,7 @@ class h2mdk
     void poll();
     void status();
     float getVoltage();
+    float getSupplyMV();
     float getCurrent();
     void start();
   private:
@@ -88,6 +89,7 @@ class h2mdk
     float _filteredRawCurrent;
     int _bandGap;
     float _cutoutVoltage;
+    float _supplyMV;
 };
 
 #endif

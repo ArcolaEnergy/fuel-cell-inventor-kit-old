@@ -105,6 +105,10 @@ float h2mdk::getVoltage()
   return _voltage;
 }
 
+float h2mdk::getSupplyMV()
+{
+  return _supplyMV;
+}
 float h2mdk::getCurrent()
 {
   return _current;
@@ -187,29 +191,29 @@ void h2mdk::_checkCaps()
 void h2mdk::_updateElect()
 {
   //read this to get more accurate ADC readings. As load increases, supplyMV drops. So we read the supplyMV before doing our other measurements.
-  float supplyMV = _vccRead();
+  _supplyMV = _vccRead();
 
   //voltage
   float rawStackV = analogRead(VOLTAGE_SENSE );
   float stackVoltage;
   if( _version == V3W || _version == V1_5W )
-    stackVoltage = (supplyMV/1024*rawStackV); 
+    stackVoltage = (_supplyMV/1024*rawStackV); 
   //for 12 and 30W
   else if( _version == V12W || _version == V30W )
-    stackVoltage = (326.00/100.00)*(supplyMV/1024*rawStackV); // R1=226k R2=100k
+    stackVoltage = (326.00/100.00)*(_supplyMV/1024*rawStackV); // R1=226k R2=100k
 
   _voltage = stackVoltage/1000;
 
   //current
   //100 times average of current. 
   _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
-  float currentMV = (supplyMV / 1024 ) * _filteredRawCurrent;
+  float currentMV = (_supplyMV / 1024 ) * _filteredRawCurrent;
   if( _version == V3W || _version == V1_5W )
     //current sense chip is powered from 5v regulator
     _current = ( currentMV - 5040 / 2 ) / 185; //185mv per amp
   else if( _version == V12W || _version == V30W )
     //current sense chip is powered by arduino supply
-    _current = ( currentMV - supplyMV / 2 ) / 185; //185mv per amp
+    _current = ( currentMV - _supplyMV / 2 ) / 185; //185mv per amp
 
 }
 
