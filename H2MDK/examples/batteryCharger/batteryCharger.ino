@@ -6,19 +6,23 @@ example program for charging a lead acid battery with a fuel cell stack
 
 //todo - fix current sense -it's way off.
 
-#define SETUP
+//#define SETUP
 
+//user variables
+const int chargeLimit = 100; 
+const int batteryStartChargeV = 11500; //mv
+const int batteryEndChargeV = 14500; //mv
+long maxChargeTime = 600000; //10 minutes expressed in ms
+
+
+
+#include <h2mdk.h>
 const int knobPin = A0;    // select the input pin for the potentiometer
 const int batteryVPin = A4; // A1-A3 are used by shield
 #define mosfetPin 6 //2 - 5 are used by the library
-#include <h2mdk.h>
-const int chargeLimit = 100; 
 float batteryV;
-const int batteryStartChargeV = 11500; //mv
-const int batteryEndChargeV = 14500; //mv
 boolean charge = false;
 long startChargeTime = 0;
-long maxChargeTime = 600000; //10 minutes expressed in ms
 long timer;
 
 //pass V1_5W, V3W, V12W or V30W depending on your board and fuelcell
