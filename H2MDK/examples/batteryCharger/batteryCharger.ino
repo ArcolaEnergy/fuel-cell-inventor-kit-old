@@ -11,8 +11,8 @@ example program for charging a lead acid battery with a fuel cell stack
 //user variables
 const int chargeLimit = 100; 
 const int batteryStartChargeV = 11500; //mv
-const int batteryEndChargeV = 14500; //mv
-long maxChargeTime = 600000; //10 minutes expressed in ms
+const int batteryEndChargeV = 13800; //mv
+long maxChargeTime = 7200000; //2 hrs expressed in ms. 600000 is 10 minutes expressed in ms
 
 
 
@@ -45,8 +45,23 @@ void loop()
   //this takes care of short circuit, purging and updating electrical values
   fuelcell.poll();
 
+
+#ifdef SETUP
+  //potentiometer adjustment of current
+  if( millis() - timer > 1000 )
+  {
+    timer = millis();
+    //use a knob to set charge current
+    int knobPos = analogRead(knobPin);
+    int pwm = map( knobPos, 0, 1023, 0, 255 );
+    analogWrite( mosfetPin, pwm );
+    Serial.print( "charge PWM: " ); 
+    Serial.println( pwm, DEC );
+  }
+#endif
+
 #ifndef SETUP
-  //once per second
+  //once per second, we check battery status and make decisions about charging it
   if( millis() - timer > 1000 )
   {
     timer = millis();
@@ -56,6 +71,8 @@ void loop()
     Serial.println( charge ? "charging" : "waiting" );
     Serial.print( "battery voltage: " );
     Serial.println( batteryV );
+
+    //logic
     if( charge == false && batteryV < batteryStartChargeV )
     {
       charge = true;
@@ -79,21 +96,4 @@ void loop()
     }
   }
 #endif
-#ifdef SETUP
-  if( millis() - timer > 1000 )
-  {
-    timer = millis();
-    //use a knob to set charge current
-    int knobPos = analogRead(knobPin);
-    int pwm = map( knobPos, 0, 1023, 0, 255 );
-    analogWrite( mosfetPin, pwm );
-    Serial.print( "charge PWM: " ); 
-    Serial.println( pwm, DEC );
-  }
-#endif
-
 }
-
-
-
-
