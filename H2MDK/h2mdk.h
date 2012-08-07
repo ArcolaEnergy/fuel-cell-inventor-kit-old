@@ -72,7 +72,10 @@ class h2mdk
     static const int SHORT = 4;
     static const int STATUS_LED = 5;
   #elif( _hardware == V2 )
-
+    static const int PURGE = 3;
+    static const int LOAD = 4;  // 3w can disconnect load
+    static const int SHORT = 5;
+    static const int STATUS_LED = 6;
   #endif
 //analog pins
     static const int VOLTAGE_SENSE = A1;
@@ -171,11 +174,10 @@ void h2mdk::start()
     digitalWrite( LOAD, _ni(HIGH) );
   }
   
-  if( _hardware == V1 && (_version == V12W || _version == V30W ))
-  {
-  //charge pump waveform
+  #if( _hardware == V1 && (_version == V12W || _version == V30W ))
+    //charge pump waveform
     analogWrite( OSC, 128 );
-  }
+  #endif
 
   pinMode( SHORT, OUTPUT );
   digitalWrite( SHORT, _ni(LOW) );
