@@ -4,17 +4,18 @@ for more info see the website:
 http://www.arcolaenergy.com/h2mdk
 */
 
-#include <h2mdk.h>
+//define _version as V1_5W, V3W, V12W or V30W depending on your board and fuelcell
+#define _version V12W
+#define _hardware V1
+
+#include "h2mdk.h"
 #include "nokia_3310_lcd.h"
 #include<stdlib.h>
 
 //nokia LCD setup - see http://www.nuelectronics.com/estore/index.php?main_page=product_info&products_id=12
 Nokia_3310_lcd lcd=Nokia_3310_lcd();
 
-//pass V1_5W, V3W, V12W or V30W depending on your board and fuelcell
-//for greater accuracy set second argument to arduino's internal band gap voltage in mv
-//see http://bit.ly/KQmkma on how to measure this
-h2mdk fuelcell(V1_5W); 
+h2mdk fuelcell;
 
 //global vars
 char floatVal[8];
