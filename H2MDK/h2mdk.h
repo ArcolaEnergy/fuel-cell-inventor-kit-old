@@ -29,26 +29,27 @@
 
 //timing defs
 #define PREPURGE 200 //to ensure we don't purge while shorting!
-#define ELECT_INTERVAL 400 //how often to sample electrical 
+#define ELECT_INTERVAL 100 //how often to sample electrical 
 #define BLINK_INTERVAL 500 //how often to sample electrical 
 
-#define FILTER 0.9 //coefficient for LPF on current sense
+#define FILTER 0.8 //coefficient for LPF on current sense
 //band gap can be measured like this: http://bit.ly/KQmkma
 #define DEFAULTBANDGAP 1100 //for better ADC accuracy, pass your bandgap to constructor
-#define CAP_V 800
+#define CAP_V 2900 //this will need a potential divider
 
 //digital IO pins
-#define PURGE 2
-#define LOAD 3  // 3w can disconnect load
-#define OSC 3   // 12-30w needs oscillator for mosfet charge pump
-#define SHORT 4
-#define STATUS_LED 5
+#define PURGE 3
+#define LOAD 4  // 3w can disconnect load
+#define OSC 4   // 12-30w needs oscillator for mosfet charge pump
+#define SHORT 5
+#define STATUS_LED 6
 
 //analog pins
 #define VOLTAGE_SENSE A1
 #define CURRENT_SENSE A2
 #define CAP_V_SENSE A3
 
+const float _aRef = 3300.0;
 class h2mdk
 {
   public:
