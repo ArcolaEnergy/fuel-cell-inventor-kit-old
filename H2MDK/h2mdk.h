@@ -50,6 +50,7 @@ class h2mdk
     bool _ni(bool);
     float _current;
     float _voltage;
+    float _capVoltage;
     void _shortCircuit();
     void _purge();
     void _updateElect();
@@ -62,9 +63,6 @@ class h2mdk
     static const int BLINK_INTERVAL = 500; //how often to sample electrical
 
     static const float FILTER = 0.9; //coefficient for LPF on current sense
-//band gap can be measured like this: http://bit.ly/KQmkma
-    static const int DEFAULTBANDGAP = 1100; //for better ADC accuracy, pass your bandgap to constructor
-    static const int CAP_V = 800;
 
 //digital IO pins
   #if( _hardware == V1 )
@@ -81,6 +79,26 @@ class h2mdk
     static const int CURRENT_SENSE = A2;
     static const int CAP_V_SENSE = A3;
 
+    static const int CAP_V = 4000; //mv
+  #if( _hardware == V1 )
+      static const int AREF = 5000;
+      static const float capDivider = 1.0;
+    #if( _version == V1_5W || _version == V3W )
+      static const float FCDivider = 1.0;
+    #else
+      static const float FCDivider = 326.00/100.00; // R1=226k R2=100k1.0;
+    #endif
+  #elif(_hardware == V2 )
+      static const int AREF = 3300;
+      static const float capDivider = 0.5;
+    #if( _version == V1_5W || _version == V3W )
+      static const float FCDivider = 0.5; //untested
+    #else
+      static const float FCDivider = 326.00/100.00; // untested R1=226k R2=100k1.0;
+    #endif
+  #endif
+      
+      
 /*
 1.5W stack (info from Horizon)
 Purge: 100ms every 4 mins
@@ -129,16 +147,7 @@ Short circuit: 100ms every 10s
     unsigned int _statusTimer;
     unsigned long _lastPoll;
     float _filteredRawCurrent;
-  #ifdef BANDGAP
-    static const int _bandGap = BANDGAP;
-  #else
-    static const int _bandGap = DEFAULTBANDGAP;
-  #endif
 };
-
-
-
-
 
 void h2mdk::start()
 {
@@ -147,7 +156,11 @@ void h2mdk::start()
   _electTimer = 0;
   _statusTimer = 0;
 
-  _filteredRawCurrent = 512; //should be at zero A (ie 2.5v) to start with
+  _filteredRawCurrent = 1024.0/AREF*2500.0; //should be at zero A (ie 2500mv) to start with
+
+  #if( _hardware == V2 )
+    analogReference(EXTERNAL);
+  #endif
 
   pinMode(STATUS_LED, OUTPUT);
 
@@ -157,7 +170,8 @@ void h2mdk::start()
     //connect the load to charge the caps
     digitalWrite( LOAD, _ni(HIGH) );
   }
-  else if( _version == V12W || _version == V30W )
+  
+  if( _hardware == V1 && (_version == V12W || _version == V30W ))
   {
   //charge pump waveform
     analogWrite( OSC, 128 );
@@ -253,9 +267,13 @@ void h2mdk::poll()
 
 void h2mdk::_checkCaps()
 {
-  while( analogRead( CAP_V_SENSE ) < CAP_V )
+
+  while( _capVoltage < CAP_V)
   {
-    Serial.println( analogRead( CAP_V_SENSE ) );
+    _updateElect();
+    Serial.print("cap: ");
+    Serial.print(_capVoltage);
+    Serial.println("mv");
     _blink();
     delay(200);
   }
@@ -264,30 +282,26 @@ void h2mdk::_checkCaps()
 
 void h2mdk::_updateElect()
 {
-  //read this to get more accurate ADC readings. As load increases, supplyMV drops. So we read the supplyMV before doing our other measurements.
-  float supplyMV = _vccRead();
+  //cap voltage
+  _capVoltage = capDivider*AREF/1024.0*analogRead(CAP_V_SENSE ) ;
 
-  //voltage
+  //stackvoltage
   float rawStackV = analogRead(VOLTAGE_SENSE );
   float stackVoltage;
-  if( _version == V3W || _version == V1_5W )
-    stackVoltage = (supplyMV/1024*rawStackV);
-  //for 12 and 30W
-  else if( _version == V12W || _version == V30W )
-    stackVoltage = (326.00/100.00)*(supplyMV/1024*rawStackV); // R1=226k R2=100k
 
+  stackVoltage = FCDivider * (AREF/1024.0*rawStackV); 
   _voltage = stackVoltage/1000;
 
   //current
   //100 times average of current.
   _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
-  float currentMV = (supplyMV / 1024 ) * _filteredRawCurrent;
+  float currentMV = (AREF/ 1024.0 ) * _filteredRawCurrent;
   if( _version == V3W || _version == V1_5W )
     //current sense chip is powered from 5v regulator
-    _current = ( currentMV - 5040 / 2 ) / 185; //185mv per amp
+    _current = ( currentMV - 5020 / 2 ) / 185; //185mv per amp
   else if( _version == V12W || _version == V30W )
     //current sense chip is powered by arduino supply
-    _current = ( currentMV - supplyMV / 2 ) / 185; //185mv per amp
+    _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
 
 }
 
@@ -303,7 +317,7 @@ void h2mdk::_purge()
 
 void h2mdk::_shortCircuit()
 {
-  if (analogRead( CAP_V_SENSE ) < CAP_V)
+  if( _capVoltage < CAP_V)
   {
     Serial.println("SKIPPING SHORT-CIRCUIT AS SUPERCAP VOLTAGE TOO LOW");
     return;
@@ -330,7 +344,12 @@ inline bool h2mdk::_ni(bool state)
   if( _version == V3W || _version == V1_5W )
     return state;
   if( _version == V12W || _version == V30W )
-    return ! state;
+  {
+    if( _hardware == V1 )
+      return ! state;
+    else if (_hardware == V2 )
+      return state;
+  }
 }
 
 //blink the status led
@@ -340,21 +359,4 @@ void h2mdk::_blink()
   _ledstate = ! _ledstate;
 }
 
-
-//measure VCC
-//needs accurate bandgap
-//thanks to JeeLabs for this
-//http://jeelabs.org/2012/05/04/measuring-vcc-via-the-bandgap/
-int h2mdk::_vccRead()
-{
-  analogRead(6);
-  bitSet(ADMUX,3);
-  delayMicroseconds(550);
-  bitSet(ADCSRA, ADSC );
-  while( bit_is_set(ADCSRA,ADSC));
-  word x = ADC;
-  return x ? (_bandGap * 1023L) / x : -1;
-}
-
 #endif
-
