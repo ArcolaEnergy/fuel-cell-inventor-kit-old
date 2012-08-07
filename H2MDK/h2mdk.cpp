@@ -43,8 +43,8 @@ void h2mdk::_init(int version, int bandGap)
   _electTimer = 0;
   _statusTimer = 0;
   _bandGap = bandGap;
-
-  _filteredRawCurrent = 512; //should be at zero A (ie 2.5v) to start with
+  analogReference(EXTERNAL);
+  _filteredRawCurrent = 860; //should be at zero A (ie 2.5v) to start with
 
   pinMode(STATUS_LED, OUTPUT);
 
@@ -105,10 +105,6 @@ float h2mdk::getVoltage()
   return _voltage;
 }
 
-float h2mdk::getSupplyMV()
-{
-  return _supplyMV;
-}
 float h2mdk::getCurrent()
 {
   return _current;
@@ -157,8 +153,8 @@ void h2mdk::poll()
   }
 
   //as 3W version has no fuse, do we need to disconnect the load?
-  if( _version == V3W || _version == V1_5W )
-    _overloadCutout();
+  //if( _version == V3W || _version == V1_5W )
+  //  _overloadCutout();
 }
 
 //private functions
@@ -179,9 +175,11 @@ void h2mdk::_overloadCutout()
 
 void h2mdk::_checkCaps()
 {
-  while( analogRead( CAP_V_SENSE ) < CAP_V )
+  int capV = 0;
+  while( capV < CAP_V )
   {
-    Serial.println( analogRead( CAP_V_SENSE ) );
+    capV = ( _aRef / 1024.0 * analogRead( CAP_V_SENSE )); 
+    Serial.println( capV );
     _blink();
     delay(200);
   }
@@ -191,29 +189,31 @@ void h2mdk::_checkCaps()
 void h2mdk::_updateElect()
 {
   //read this to get more accurate ADC readings. As load increases, supplyMV drops. So we read the supplyMV before doing our other measurements.
-  _supplyMV = _vccRead();
-
+//  _supplyMV = _vccRead();
   //voltage
   float rawStackV = analogRead(VOLTAGE_SENSE );
   float stackVoltage;
   if( _version == V3W || _version == V1_5W )
-    stackVoltage = (_supplyMV/1024*rawStackV); 
+    stackVoltage = (_aRef/1024.0*rawStackV); 
   //for 12 and 30W
   else if( _version == V12W || _version == V30W )
-    stackVoltage = (326.00/100.00)*(_supplyMV/1024*rawStackV); // R1=226k R2=100k
+    stackVoltage = (326.00/100.00)*(_aRef/1024.0*rawStackV); // R1=226k R2=100k
 
   _voltage = stackVoltage/1000;
 
   //current
   //100 times average of current. 
+//  Serial.print( "raw c: " ) ; Serial.println( analogRead(CURRENT_SENSE));
   _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
-  float currentMV = (_supplyMV / 1024 ) * _filteredRawCurrent;
+  float currentMV = (_aRef/ 1024.0 ) * _filteredRawCurrent;
+  //Serial.print( "current MV: "); Serial.println( currentMV );
+  //Serial.print( "supply MV: " ); Serial.println( _supplyMV );
   if( _version == V3W || _version == V1_5W )
     //current sense chip is powered from 5v regulator
-    _current = ( currentMV - 5040 / 2 ) / 185; //185mv per amp
+    _current = ( currentMV - 5020 / 2 ) / 185; //185mv per amp
   else if( _version == V12W || _version == V30W )
     //current sense chip is powered by arduino supply
-    _current = ( currentMV - _supplyMV / 2 ) / 185; //185mv per amp
+    _current = ( currentMV - _aRef / 2 ) / 185; //185mv per amp
 
 }
 
@@ -229,6 +229,8 @@ void h2mdk::_purge()
 
 void h2mdk::_shortCircuit()
 {
+  int capV = ( _aRef / 1024.0 * analogRead( CAP_V_SENSE )); 
+  Serial.println( capV );
   if (analogRead( CAP_V_SENSE ) < CAP_V) 
   {
     Serial.println("SKIPPING SHORT-CIRCUIT AS SUPERCAP VOLTAGE TOO LOW");
@@ -320,12 +322,33 @@ void h2mdk::_setupTimings(int version)
 //http://jeelabs.org/2012/05/04/measuring-vcc-via-the-bandgap/
 int h2mdk::_vccRead()
 {
+  long result;
+  // Read 1.1V reference against AVcc
+  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+  delay(2); // Wait for Vref to settle
+  ADCSRA |= _BV(ADSC); // Convert
+  while (bit_is_set(ADCSRA,ADSC));
+  result = ADCL;
+  result |= ADCH<<8;
+  result = _bandGap * 1024L / result; // Back-calculate AVcc in mV
+  return (int)result;
+}
+/*
+int h2mdk::_vccRead()
+{
+  unsigned int sum = 0;
+  const int iterations = 1;
+  for( int i =0; i < iterations; i ++ )
+  {
   analogRead(6);
   bitSet(ADMUX,3);
   delayMicroseconds(550);
   bitSet(ADCSRA, ADSC );
   while( bit_is_set(ADCSRA,ADSC));
   word x = ADC;
-  return x ? (_bandGap * 1023L) / x : -1; 
+  sum += (_bandGap * 1024L) / x ; 
+  }
+  return sum / iterations;
 }
 
+*/
