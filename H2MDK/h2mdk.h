@@ -100,7 +100,8 @@ class h2mdk
     #if( _version == V1_5W || _version == V3W )
       static const float FCDivider = 2; //untested
     #else
-      static const float FCDivider = 326.00/100.00; // untested R1=226k R2=100k1.0;
+      //changed as I don't have the right R on the test board.
+      static const float FCDivider = 124.0/24.0; //326.00/100.00; // untested R1=226k R2=100k1.0;
     #endif
   #endif
       
@@ -244,8 +245,6 @@ void h2mdk::_printTimings()
   _blink(); delay(100); _blink(); delay(100); _blink(); delay(100);
 
   //wait for cap to charge
-  Serial.println(AREF);
-  Serial.println(capDivider);
   Serial.println( "waiting for caps to charge" );
   _checkCaps();
 }
