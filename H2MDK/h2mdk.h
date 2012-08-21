@@ -44,6 +44,7 @@ class h2mdk
     float getVoltage();
     float getCurrent();
     void start();
+    void overrideTimings( unsigned int, unsigned int, unsigned long, unsigned int );
   private:
     int _vccRead();
     bool _ledstate;
@@ -52,10 +53,12 @@ class h2mdk
     float _voltage;
     float _capVoltage;
     void _shortCircuit();
+    void _printTimings();
     void _purge();
     void _updateElect();
     void _blink();
     void _checkCaps();
+    void _initializeTimings();
 
 //timing defs
     static const int PREPURGE = 200; //to ensure we don't purge while shorting!
@@ -101,7 +104,33 @@ class h2mdk
     #endif
   #endif
       
-      
+
+//for doing the timing
+    unsigned int _shortCircuitTimer;
+    unsigned int _electTimer;
+    unsigned long _purgeTimer;
+    unsigned int _statusTimer;
+    unsigned long _lastPoll;
+    float _filteredRawCurrent;
+
+    unsigned int _shortCircuitInterval;
+    unsigned int _shortTime;
+    unsigned long _purgeInterval;
+    unsigned int _purgeTime;
+};
+
+void h2mdk::overrideTimings( unsigned int sci, unsigned int st, unsigned long pi, unsigned int pt )
+{
+    Serial.println( "override timings...");
+    _shortCircuitInterval = sci;
+    _shortTime = st;
+    _purgeInterval = pi;
+    _purgeTime = pt;
+    _printTimings();
+}
+
+void h2mdk::_initializeTimings()
+{
 /*
 1.5W stack (info from Horizon)
 Purge: 100ms every 4 mins
@@ -118,46 +147,40 @@ Short circuit: 100ms every 10s
 //time vars
   // all in ms
   #if( _version == V1_5W )
-    static const unsigned int _shortCircuitInterval = 10000;
-    static const unsigned int _shortTime = 100;
-    static const unsigned long _purgeInterval = 60000; //240000;
-    static const unsigned int _purgeTime = 100;
+    _shortCircuitInterval = 10000;
+    _shortTime = 100;
+    _purgeInterval = 60000; //240000;
+    _purgeTime = 100;
 
   #elif( _version == V3W )
-    static const unsigned int _shortCircuitInterval = 10000;
-    static const unsigned int _shortTime = 100;
-    static const unsigned long _purgeInterval = 60000; //240000;
-    static const unsigned int _purgeTime = 100;
+    _shortCircuitInterval = 10000;
+    _shortTime = 100;
+    _purgeInterval = 60000; //240000;
+    _purgeTime = 100;
 
   #elif( _version == V12W )
-    static const unsigned int _shortCircuitInterval = 10000;
-    static const unsigned int _shortTime = 100;
-    static const unsigned long _purgeInterval = 25000;
-    static const unsigned int _purgeTime = 50;
+    _shortCircuitInterval = 10000;
+    _shortTime = 100;
+    _purgeInterval = 25000;
+    _purgeTime = 50;
 
   #elif( _version == V30W )
-    static const unsigned int _shortCircuitInterval = 10000;
-    static const unsigned int _shortTime = 100;
-    static const unsigned long _purgeInterval = 10000;
-    static const unsigned int _purgeTime = 50;
+    _shortCircuitInterval = 10000;
+    _shortTime = 100;
+    _purgeInterval = 10000;
+    _purgeTime = 50;
   #else
   #endif
-
-//for doing the timing
-    unsigned int _shortCircuitTimer;
-    unsigned int _electTimer;
-    unsigned long _purgeTimer;
-    unsigned int _statusTimer;
-    unsigned long _lastPoll;
-    float _filteredRawCurrent;
-};
-
+}
 void h2mdk::start()
 {
   _shortCircuitTimer = 0;
   _purgeTimer = 0;
   _electTimer = 0;
   _statusTimer = 0;
+  
+  //setup default timings
+  _initializeTimings();
 
   _filteredRawCurrent = 1024.0/AREF*2500.0; //should be at zero A (ie 2500mv) to start with
 
@@ -197,6 +220,14 @@ void h2mdk::start()
   #endif
   );
 
+  _printTimings();
+  //wait for cap to charge
+  Serial.println( "waiting for caps to charge" );
+  _checkCaps();
+}
+
+void h2mdk::_printTimings()
+{
   Serial.print("Short-circuit: ");
   Serial.print(_shortTime);
   Serial.print("ms every ");
@@ -208,11 +239,8 @@ void h2mdk::start()
   Serial.print("ms every ");
   Serial.print( _purgeInterval / 1000);
   Serial.println(" s");
-
-  //wait for cap to charge
-  Serial.println( "waiting for caps to charge" );
-  _checkCaps();
 }
+
 float h2mdk::getVoltage()
 {
   return _voltage;
