@@ -82,7 +82,7 @@ class h2mdk
     static const int CURRENT_SENSE = A2;
     static const int CAP_V_SENSE = A3;
 
-    static const int CAP_V = 4000; //mv
+    static const int CAP_V = 3500; //mv
   #if( _hardware == V1 )
       static const int AREF = 5000;
       static const float capDivider = 1.0;
@@ -93,9 +93,9 @@ class h2mdk
     #endif
   #elif(_hardware == V2 )
       static const int AREF = 3300;
-      static const float capDivider = 0.5;
+      static const float capDivider = 2;
     #if( _version == V1_5W || _version == V3W )
-      static const float FCDivider = 0.5; //untested
+      static const float FCDivider = 2; //untested
     #else
       static const float FCDivider = 326.00/100.00; // untested R1=226k R2=100k1.0;
     #endif
@@ -133,13 +133,13 @@ Short circuit: 100ms every 10s
     static const unsigned int _shortCircuitInterval = 10000;
     static const unsigned int _shortTime = 100;
     static const unsigned long _purgeInterval = 25000;
-    static const unsigned int _purgeTime = 50;
+    static const unsigned int _purgeTime = 100;
 
   #elif( _version == V30W )
     static const unsigned int _shortCircuitInterval = 10000;
     static const unsigned int _shortTime = 100;
     static const unsigned long _purgeInterval = 10000;
-    static const unsigned int _purgeTime = 50;
+    static const unsigned int _purgeTime = 100;
   #else
   #endif
 
@@ -209,7 +209,12 @@ void h2mdk::start()
   Serial.print( _purgeInterval / 1000);
   Serial.println(" s");
 
+    //double blink to show we've started
+    _blink(); delay(100); _blink(); delay(100); _blink(); delay(100);
+
   //wait for cap to charge
+  Serial.println(AREF);
+  Serial.println(capDivider);
   Serial.println( "waiting for caps to charge" );
   _checkCaps();
 }
@@ -312,9 +317,18 @@ void h2mdk::_purge()
 {
   delay( PREPURGE );
   Serial.println("PURGE");
+  
+  if( _version == V3W || _version == V1_5W )
+    //disconnect load
+    digitalWrite( LOAD, _ni(LOW) );
+
   digitalWrite( PURGE, _ni(HIGH) );
   delay( _purgeTime);
   digitalWrite( PURGE, _ni(LOW) );
+
+  if( _version == V3W || _version == V1_5W )
+    //disconnect load
+    digitalWrite( LOAD, _ni(HIGH) );
 }
 
 void h2mdk::_shortCircuit()
@@ -324,6 +338,7 @@ void h2mdk::_shortCircuit()
     Serial.println("SKIPPING SHORT-CIRCUIT AS SUPERCAP VOLTAGE TOO LOW");
     return;
   }
+  Serial.println("SHORT-CIRCUIT");
 
   if( _version == V3W || _version == V1_5W )
     //disconnect load
@@ -331,7 +346,6 @@ void h2mdk::_shortCircuit()
 
   //short circuit
   digitalWrite( SHORT, _ni(HIGH) );
-  Serial.println("SHORT-CIRCUIT");
   delay(_shortTime);
   digitalWrite( SHORT, _ni(LOW) );
 
