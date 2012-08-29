@@ -11,9 +11,12 @@ for more info see the website:
 http://www.arcolaenergy.com/h2mdk
 */
 
-//for fuel cell power
+//_stacksize V1_5W, V3W, V12W or V30W depending on fuelcell
+//_shield is the version number printed on the reverse of the shield
+#define _stacksize V1_5W
+#define _shield V1_2
 #include <h2mdk.h>
-h2mdk fuelcell(V3W); 
+h2mdk fuelcell; 
 
 //for radio
 #include <JeeLib.h>

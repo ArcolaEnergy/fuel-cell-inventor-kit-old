@@ -4,8 +4,6 @@ example program for charging a lead acid battery with a fuel cell stack
  http://www.arcolaenergy.com/h2mdk
  */
 
-//todo - fix current sense -it's way off.
-
 //#define SETUP
 
 //user variables
@@ -16,7 +14,6 @@ long maxChargeTime = 7200000; //2 hrs expressed in ms. 600000 is 10 minutes expr
 
 
 
-#include <h2mdk.h>
 const int knobPin = A0;    // select the input pin for the potentiometer
 const int batteryVPin = A4; // A1-A3 are used by shield
 #define mosfetPin 6 //2 - 5 are used by the library
@@ -25,10 +22,12 @@ boolean charge = false;
 long startChargeTime = 0;
 long timer;
 
-//pass V1_5W, V3W, V12W or V30W depending on your board and fuelcell
-//for greater accuracy set second argument to arduino's internal band gap voltage in mv
-//see http://bit.ly/KQmkma on how to measure this
-h2mdk fuelcell(V30W); 
+//_stacksize V1_5W, V3W, V12W or V30W depending on fuelcell
+//_shield is the version number printed on the reverse of the shield
+#define _stacksize V1_5W
+#define _shield V1_2
+#include <h2mdk.h>
+h2mdk fuelcell; 
 
 void setup()
 {

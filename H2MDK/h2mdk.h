@@ -33,8 +33,9 @@
 #define V12W 3
 #define V30W 4
 //hardware version types
-#define V1 1
-#define V2 2
+#define V1_0 1
+#define V1_2 2
+#define V1_3 3
 
 class h2mdk
 {
@@ -68,13 +69,13 @@ class h2mdk
     static const float FILTER = 0.9; //coefficient for LPF on current sense
 
 //digital IO pins
-  #if( _hardware == V1 )
+  #if( _shield == V1_0 )
     static const int PURGE = 2;
     static const int LOAD = 3;  // 3w can disconnect load
     static const int OSC = 3;   // 12-30w needs oscillator for mosfet charge pump
     static const int SHORT = 4;
     static const int STATUS_LED = 5;
-  #elif( _hardware == V2 )
+  #elif( _shield == V1_2 || _shield == V1_3)
     static const int PURGE = 3;
     static const int LOAD = 4;  // 3w can disconnect load
     static const int SHORT = 5;
@@ -86,18 +87,18 @@ class h2mdk
     static const int CAP_V_SENSE = A3;
 
     static const int CAP_V = 3500; //mv
-  #if( _hardware == V1 )
+  #if( _shield == V1_0 )
       static const int AREF = 5000;
       static const float capDivider = 1.0;
-    #if( _version == V1_5W || _version == V3W )
+    #if( _stacksize == V1_5W || _stacksize == V3W )
       static const float FCDivider = 1.0;
     #else
       static const float FCDivider = 326.00/100.00; // R1=226k R2=100k1.0;
     #endif
-  #elif(_hardware == V2 )
+  #elif(_shield == V1_2 || _shield == V1_3 )
       static const int AREF = 3300;
       static const float capDivider = 2;
-    #if( _version == V1_5W || _version == V3W )
+    #if( _stacksize == V1_5W || _stacksize == V3W )
       static const float FCDivider = 2; //untested
     #else
       //changed as I don't have the right R on the test board.
@@ -147,29 +148,29 @@ Short circuit: 100ms every 10s
 */
 //time vars
   // all in ms
-  #if( _version == V1_5W )
+  #if( _stacksize == V1_5W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 60000; //240000;
     _purgeTime = 100;
 
-  #elif( _version == V3W )
+  #elif( _stacksize == V3W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 60000; //240000;
     _purgeTime = 100;
 
-  #elif( _version == V12W )
+  #elif( _stacksize == V12W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 25000;
-    _purgeTime = 50;
+    _purgeTime = 100;
 
-  #elif( _version == V30W )
+  #elif( _stacksize == V30W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 10000;
-    _purgeTime = 50;
+    _purgeTime = 100;
   #else
   #endif
 }
@@ -185,20 +186,20 @@ void h2mdk::start()
 
   _filteredRawCurrent = 1024.0/AREF*2500.0; //should be at zero A (ie 2500mv) to start with
 
-  #if( _hardware == V2 )
+  #if( _shield == V1_2 || _shield == V1_3 )
     analogReference(EXTERNAL);
   #endif
 
   pinMode(STATUS_LED, OUTPUT);
 
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
   {
     pinMode( LOAD, OUTPUT );
     //connect the load to charge the caps
     digitalWrite( LOAD, _ni(HIGH) );
   }
   
-  #if( _hardware == V1 && (_version == V12W || _version == V30W ))
+  #if( _shield == V1_0 && (_stacksize == V12W || _stacksize == V30W ))
     //charge pump waveform
     analogWrite( OSC, 128 );
   #endif
@@ -209,18 +210,30 @@ void h2mdk::start()
   digitalWrite( PURGE, _ni(LOW) );
 
   Serial.println( "ArcolaEnergy fuel cell controller for "
-  #if( _version == V1_5W )
+  #if( _stacksize == V1_5W )
     "1.5W"
-  #elif( _version == V3W )
+  #elif( _stacksize == V3W )
     "3W"
-  #elif( _version == V12W )
+  #elif( _stacksize == V12W )
     "12W"
-  #elif( _version == V30W )
+  #elif( _stacksize == V30W )
     "30W"
   #else
+    "unknown!"
   #endif
   );
 
+  Serial.println( "Hardware version "
+  #if( _shield == V1_0 ) //first prototypes
+    "v1.0"
+  #elif( _shield == V1_2 ) //production run for 1.5/3w
+    "v1.2"
+  #elif( _shield == V1_3 ) //production run for 12/30w
+    "v1.3"
+  #else
+    "unknown!"
+   #endif
+  );
   _printTimings();
   //wait for cap to charge
   Serial.println( "waiting for caps to charge" );
@@ -334,10 +347,10 @@ void h2mdk::_updateElect()
   //100 times average of current.
   _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
   float currentMV = (AREF/ 1024.0 ) * _filteredRawCurrent;
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //current sense chip is powered from 5v regulator
     _current = ( currentMV - 5020 / 2 ) / 185; //185mv per amp
-  else if( _version == V12W || _version == V30W )
+  else if( _stacksize == V12W || _stacksize == V30W )
     //current sense chip is powered by arduino supply
     _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
 
@@ -349,7 +362,7 @@ void h2mdk::_purge()
   delay( PREPURGE );
   Serial.println("PURGE");
   
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //disconnect load
     digitalWrite( LOAD, _ni(LOW) );
 
@@ -357,7 +370,7 @@ void h2mdk::_purge()
   delay( _purgeTime);
   digitalWrite( PURGE, _ni(LOW) );
 
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //disconnect load
     digitalWrite( LOAD, _ni(HIGH) );
 }
@@ -371,7 +384,7 @@ void h2mdk::_shortCircuit()
   }
   Serial.println("SHORT-CIRCUIT");
 
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //disconnect load
     digitalWrite( LOAD, _ni(LOW) );
 
@@ -380,7 +393,7 @@ void h2mdk::_shortCircuit()
   delay(_shortTime);
   digitalWrite( SHORT, _ni(LOW) );
 
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //reconnect
     digitalWrite( LOAD, _ni(HIGH) );
 }
@@ -388,13 +401,13 @@ void h2mdk::_shortCircuit()
 //utility to invert the mosfet pins for the 12 and 30W control boards
 inline bool h2mdk::_ni(bool state)
 {
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     return state;
-  if( _version == V12W || _version == V30W )
+  if( _stacksize == V12W || _stacksize == V30W )
   {
-    if( _hardware == V1 )
+    if( _shield == V1_0 )
       return ! state;
-    else if (_hardware == V2 )
+    else if (_shield == V1_3 )
       return state;
   }
 }
