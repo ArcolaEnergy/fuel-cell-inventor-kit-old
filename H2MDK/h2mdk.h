@@ -184,12 +184,15 @@ void h2mdk::start()
   //setup default timings
   _initializeTimings();
 
+  //initialize the current so that when we startup it isn't negative
   _filteredRawCurrent = 1024.0/AREF*2500.0; //should be at zero A (ie 2500mv) to start with
 
+  //for the latest hardware, aref is connected to the Arduino's 3.3v output to get a more stable reference for the ADC
   #if( _shield == V1_2 || _shield == V1_3 )
     analogReference(EXTERNAL);
   #endif
 
+  //pin def stuff
   pinMode(STATUS_LED, OUTPUT);
 
   if( _stacksize == V3W || _stacksize == V1_5W )
@@ -209,6 +212,7 @@ void h2mdk::start()
   pinMode( PURGE, OUTPUT );
   digitalWrite( PURGE, _ni(LOW) );
 
+  //show the user what version we are
   Serial.println( "ArcolaEnergy fuel cell controller for "
   #if( _stacksize == V1_5W )
     "1.5W"
@@ -234,52 +238,15 @@ void h2mdk::start()
     "unknown!"
    #endif
   );
+
   _printTimings();
-  //wait for cap to charge
-  Serial.println( "waiting for caps to charge" );
-  _checkCaps();
-}
-
-void h2mdk::_printTimings()
-{
-  Serial.print("Short-circuit: ");
-  Serial.print(_shortTime);
-  Serial.print("ms every ");
-  Serial.print(_shortCircuitInterval / 1000);
-  Serial.println(" s");
-
-  Serial.print("Purge: ");
-  Serial.print(_purgeTime);
-  Serial.print("ms every ");
-  Serial.print( _purgeInterval / 1000);
-  Serial.println(" s");
-
-    //double blink to show we've started
-  _blink(); delay(100); _blink(); delay(100); _blink(); delay(100);
 
   //wait for cap to charge
   Serial.println( "waiting for caps to charge" );
   _checkCaps();
 }
 
-float h2mdk::getVoltage()
-{
-  return _voltage;
-}
-
-float h2mdk::getCurrent()
-{
-  return _current;
-}
-
-void h2mdk::status()
-{
-  Serial.print( _voltage );
-  Serial.print( "V, " );
-  Serial.print( _current );
-  Serial.println( "A" );
-}
-
+//deals with all the timing. Should be called about every 100ms
 void h2mdk::poll()
 {
   int interval = millis() - _lastPoll;
@@ -316,6 +283,7 @@ void h2mdk::poll()
 
 }
 
+//block until capacitors are charged
 void h2mdk::_checkCaps()
 {
 
@@ -331,6 +299,7 @@ void h2mdk::_checkCaps()
   Serial.println( "CHARGED" );
 }
 
+//update all the electrical measurements
 void h2mdk::_updateElect()
 {
   //cap voltage
@@ -353,10 +322,9 @@ void h2mdk::_updateElect()
   else if( _stacksize == V12W || _stacksize == V30W )
     //current sense chip is powered by arduino supply
     _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
-
 }
 
-
+//purge the waste gas in the stack
 void h2mdk::_purge()
 {
   delay( PREPURGE );
@@ -375,6 +343,7 @@ void h2mdk::_purge()
     digitalWrite( LOAD, _ni(HIGH) );
 }
 
+//short circuit the stack to keep the temperature right
 void h2mdk::_shortCircuit()
 {
   if( _capVoltage < CAP_V)
@@ -384,8 +353,8 @@ void h2mdk::_shortCircuit()
   }
   Serial.println("SHORT-CIRCUIT");
 
+  //disconnect load if we can
   if( _stacksize == V3W || _stacksize == V1_5W )
-    //disconnect load
     digitalWrite( LOAD, _ni(LOW) );
 
   //short circuit
@@ -393,12 +362,56 @@ void h2mdk::_shortCircuit()
   delay(_shortTime);
   digitalWrite( SHORT, _ni(LOW) );
 
+  //reconnect load if we can
   if( _stacksize == V3W || _stacksize == V1_5W )
-    //reconnect
     digitalWrite( LOAD, _ni(HIGH) );
 }
 
-//utility to invert the mosfet pins for the 12 and 30W control boards
+//utility function to show the timings that have been set
+void h2mdk::_printTimings()
+{
+  Serial.print("Short-circuit: ");
+  Serial.print(_shortTime);
+  Serial.print("ms every ");
+  Serial.print(_shortCircuitInterval / 1000);
+  Serial.println(" s");
+
+  Serial.print("Purge: ");
+  Serial.print(_purgeTime);
+  Serial.print("ms every ");
+  Serial.print( _purgeInterval / 1000);
+  Serial.println(" s");
+
+    //double blink to show we've started
+  _blink(); delay(100); _blink(); delay(100); _blink(); delay(100);
+
+  //wait for cap to charge
+  Serial.println( "waiting for caps to charge" );
+  _checkCaps();
+}
+
+//returns stack voltage
+float h2mdk::getVoltage()
+{
+  return _voltage;
+}
+
+//returns stack current
+float h2mdk::getCurrent()
+{
+  return _current;
+}
+
+//prints a status message
+void h2mdk::status()
+{
+  Serial.print( _voltage );
+  Serial.print( "V, " );
+  Serial.print( _current );
+  Serial.println( "A" );
+}
+
+//utility to invert the mosfet pins for the older version 12 and 30W control boards
 inline bool h2mdk::_ni(bool state)
 {
   if( _stacksize == V3W || _stacksize == V1_5W )
