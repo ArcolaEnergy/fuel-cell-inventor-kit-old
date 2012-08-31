@@ -66,7 +66,7 @@ void loop()
     timer = millis();
     int rawBatteryV = analogRead( batteryVPin );
     //these first 2 numbers are total R (in kohms) and lower R of potential divider
-    batteryV = (299.00/80.00)*(fuelcell.getSupplyMV()/1024*rawBatteryV); // R1=226k R2=100k
+    batteryV = (300.00/80.00)*(5000/1024)*rawBatteryV; // R1=226k R2=100k
     Serial.println( charge ? "charging" : "waiting" );
     Serial.print( "battery voltage: " );
     Serial.println( batteryV );
