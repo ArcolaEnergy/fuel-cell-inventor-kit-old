@@ -16,7 +16,7 @@ long maxChargeTime = 7200000; //2 hrs expressed in ms. 600000 is 10 minutes expr
 
 const int knobPin = A0;    // select the input pin for the potentiometer
 const int batteryVPin = A4; // A1-A3 are used by shield
-#define mosfetPin 6 //2 - 5 are used by the library
+#define mosfetPin 9 //3,5 & 6 are used by the library
 float batteryV;
 boolean charge = false;
 long startChargeTime = 0;
