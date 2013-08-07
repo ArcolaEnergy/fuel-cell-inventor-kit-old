@@ -16,6 +16,10 @@
 
   You should have received a copy of the GNU General Public License
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+  TODO:
+  * add 3w overload protection
 */
 
 #ifndef h2mdk_h
@@ -45,6 +49,10 @@ class h2mdk
     float getCurrent();
     void start();
     void overrideTimings( unsigned int, unsigned int, unsigned long, unsigned int );
+    void enablePurge();
+    void disablePurge();
+    void enableShort();
+    void disableShort();
   private:
     int _vccRead();
     bool _ledstate;
@@ -59,9 +67,11 @@ class h2mdk
     void _blink();
     void _checkCaps();
     void _initializeTimings();
+    bool _doShort;
+    bool _doPurge;
 
 //timing defs
-    static const int PREPURGE = 200; //to ensure we don't purge while shorting!
+    static const int PREPURGE = 100; //to ensure we don't purge while shorting - doesn't happen with default timings.
     static const int ELECT_INTERVAL = 400; //how often to sample electrical
     static const int BLINK_INTERVAL = 500; //how often to sample electrical
 
@@ -100,7 +110,7 @@ class h2mdk
     #if( _version == V1_5W || _version == V3W )
       static const float FCDivider = 2; //untested
     #else
-      static const float FCDivider = 326.00/100.00; // untested R1=226k R2=100k1.0;
+      static const float FCDivider = 97.00/22.00; // R1=75k R2=22
     #endif
   #endif
       
@@ -174,7 +184,7 @@ Short circuit: 100ms every 10s
 }
 void h2mdk::start()
 {
-  _shortCircuitTimer = 0;
+  _shortCircuitTimer = 5000; //start off out of phase with purge
   _purgeTimer = 0;
   _electTimer = 0;
   _statusTimer = 0;
@@ -248,6 +258,24 @@ void h2mdk::_printTimings()
   Serial.println(capDivider);
   Serial.println( "waiting for caps to charge" );
   _checkCaps();
+}
+
+//allow user to control whether we are shorting/purging
+void h2mdk::disableShort()
+{
+    _doShort = false;
+}
+void h2mdk::enableShort()
+{
+    _doShort = true;
+}
+void h2mdk::disablePurge()
+{
+    _doPurge = false;
+}
+void h2mdk::enablePurge()
+{
+    _doPurge = true;
 }
 
 float h2mdk::getVoltage()
@@ -347,7 +375,11 @@ void h2mdk::_updateElect()
 
 void h2mdk::_purge()
 {
-  delay( PREPURGE );
+  if( _doPurge == false )
+  {
+    Serial.println("USER REQUESTS SKIPPING PURGE");
+    return;
+  }
   Serial.println("PURGE");
   
   if( _version == V3W || _version == V1_5W )
@@ -365,6 +397,11 @@ void h2mdk::_purge()
 
 void h2mdk::_shortCircuit()
 {
+  if( _doShort == false )
+  {
+    Serial.println("USER REQUESTS SKIPPING SHORT-CIRCUIT");
+    return;
+  }
   if( _capVoltage < CAP_V)
   {
     Serial.println("SKIPPING SHORT-CIRCUIT AS SUPERCAP VOLTAGE TOO LOW");
