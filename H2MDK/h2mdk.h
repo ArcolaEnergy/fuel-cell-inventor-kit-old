@@ -37,8 +37,9 @@
 #define V12W 3
 #define V30W 4
 //hardware version types
-#define V1 1
-#define V2 2
+#define V1_0 1
+#define V1_2 2
+#define V1_3 3
 
 class h2mdk
 {
@@ -78,13 +79,13 @@ class h2mdk
     static const float FILTER = 0.9; //coefficient for LPF on current sense
 
 //digital IO pins
-  #if( _hardware == V1 )
+  #if( _shield == V1_0 )
     static const int PURGE = 2;
     static const int LOAD = 3;  // 3w can disconnect load
     static const int OSC = 3;   // 12-30w needs oscillator for mosfet charge pump
     static const int SHORT = 4;
     static const int STATUS_LED = 5;
-  #elif( _hardware == V2 )
+  #elif( _shield == V1_2 || _shield == V1_3)
     static const int PURGE = 3;
     static const int LOAD = 4;  // 3w can disconnect load
     static const int SHORT = 5;
@@ -96,18 +97,18 @@ class h2mdk
     static const int CAP_V_SENSE = A3;
 
     static const int CAP_V = 3500; //mv
-  #if( _hardware == V1 )
+  #if( _shield == V1_0 )
       static const int AREF = 5000;
       static const float capDivider = 1.0;
-    #if( _version == V1_5W || _version == V3W )
+    #if( _stacksize == V1_5W || _stacksize == V3W )
       static const float FCDivider = 1.0;
     #else
       static const float FCDivider = 326.00/100.00; // R1=226k R2=100k1.0;
     #endif
-  #elif(_hardware == V2 )
+  #elif(_shield == V1_2 || _shield == V1_3 )
       static const int AREF = 3300;
       static const float capDivider = 2;
-    #if( _version == V1_5W || _version == V3W )
+    #if( _stacksize == V1_5W || _stacksize == V3W )
       static const float FCDivider = 2; //untested
     #else
       static const float FCDivider = 97.00/22.00; // R1=75k R2=22
@@ -156,29 +157,29 @@ Short circuit: 100ms every 10s
 */
 //time vars
   // all in ms
-  #if( _version == V1_5W )
+  #if( _stacksize == V1_5W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 60000; //240000;
     _purgeTime = 100;
 
-  #elif( _version == V3W )
+  #elif( _stacksize == V3W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 60000; //240000;
     _purgeTime = 100;
 
-  #elif( _version == V12W )
+  #elif( _stacksize == V12W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 25000;
-    _purgeTime = 50;
+    _purgeTime = 100;
 
-  #elif( _version == V30W )
+  #elif( _stacksize == V30W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 10000;
-    _purgeTime = 50;
+    _purgeTime = 100;
   #else
   #endif
 }
@@ -192,22 +193,25 @@ void h2mdk::start()
   //setup default timings
   _initializeTimings();
 
+  //initialize the current so that when we startup it isn't negative
   _filteredRawCurrent = 1024.0/AREF*2500.0; //should be at zero A (ie 2500mv) to start with
 
-  #if( _hardware == V2 )
+  //for the latest hardware, aref is connected to the Arduino's 3.3v output to get a more stable reference for the ADC
+  #if( _shield == V1_2 || _shield == V1_3 )
     analogReference(EXTERNAL);
   #endif
 
+  //pin def stuff
   pinMode(STATUS_LED, OUTPUT);
 
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
   {
     pinMode( LOAD, OUTPUT );
     //connect the load to charge the caps
     digitalWrite( LOAD, _ni(HIGH) );
   }
   
-  #if( _hardware == V1 && (_version == V12W || _version == V30W ))
+  #if( _shield == V1_0 && (_stacksize == V12W || _stacksize == V30W ))
     //charge pump waveform
     analogWrite( OSC, 128 );
   #endif
@@ -217,49 +221,41 @@ void h2mdk::start()
   pinMode( PURGE, OUTPUT );
   digitalWrite( PURGE, _ni(LOW) );
 
+  //show the user what version we are
   Serial.println( "ArcolaEnergy fuel cell controller for "
-  #if( _version == V1_5W )
+  #if( _stacksize == V1_5W )
     "1.5W"
-  #elif( _version == V3W )
+  #elif( _stacksize == V3W )
     "3W"
-  #elif( _version == V12W )
+  #elif( _stacksize == V12W )
     "12W"
-  #elif( _version == V30W )
+  #elif( _stacksize == V30W )
     "30W"
   #else
+    "unknown!"
   #endif
   );
 
+  Serial.println( "Hardware version "
+  #if( _shield == V1_0 ) //first prototypes
+    "v1.0"
+  #elif( _shield == V1_2 ) //production run for 1.5/3w
+    "v1.2"
+  #elif( _shield == V1_3 ) //production run for 12/30w
+    "v1.3"
+  #else
+    "unknown!"
+   #endif
+  );
+
   _printTimings();
+
   //wait for cap to charge
   Serial.println( "waiting for caps to charge" );
   _checkCaps();
 }
 
-void h2mdk::_printTimings()
-{
-  Serial.print("Short-circuit: ");
-  Serial.print(_shortTime);
-  Serial.print("ms every ");
-  Serial.print(_shortCircuitInterval / 1000);
-  Serial.println(" s");
-
-  Serial.print("Purge: ");
-  Serial.print(_purgeTime);
-  Serial.print("ms every ");
-  Serial.print( _purgeInterval / 1000);
-  Serial.println(" s");
-
-    //double blink to show we've started
-  _blink(); delay(100); _blink(); delay(100); _blink(); delay(100);
-
-  //wait for cap to charge
-  Serial.println(AREF);
-  Serial.println(capDivider);
-  Serial.println( "waiting for caps to charge" );
-  _checkCaps();
-}
-
+<<<<<<< HEAD
 //allow user to control whether we are shorting/purging
 void h2mdk::disableShort()
 {
@@ -296,6 +292,9 @@ void h2mdk::status()
   Serial.println( "A" );
 }
 
+=======
+//deals with all the timing. Should be called about every 100ms
+>>>>>>> 0078c1b5257dd3722c0cc0a1741659d4dc963f9e
 void h2mdk::poll()
 {
   int interval = millis() - _lastPoll;
@@ -332,6 +331,7 @@ void h2mdk::poll()
 
 }
 
+//block until capacitors are charged
 void h2mdk::_checkCaps()
 {
 
@@ -347,6 +347,7 @@ void h2mdk::_checkCaps()
   Serial.println( "CHARGED" );
 }
 
+//update all the electrical measurements
 void h2mdk::_updateElect()
 {
   //cap voltage
@@ -363,16 +364,15 @@ void h2mdk::_updateElect()
   //100 times average of current.
   _filteredRawCurrent = _filteredRawCurrent * FILTER  + ( 1 - FILTER ) * analogRead(CURRENT_SENSE);
   float currentMV = (AREF/ 1024.0 ) * _filteredRawCurrent;
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //current sense chip is powered from 5v regulator
     _current = ( currentMV - 5020 / 2 ) / 185; //185mv per amp
-  else if( _version == V12W || _version == V30W )
+  else if( _stacksize == V12W || _stacksize == V30W )
     //current sense chip is powered by arduino supply
     _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
-
 }
 
-
+//purge the waste gas in the stack
 void h2mdk::_purge()
 {
   if( _doPurge == false )
@@ -382,7 +382,7 @@ void h2mdk::_purge()
   }
   Serial.println("PURGE");
   
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //disconnect load
     digitalWrite( LOAD, _ni(LOW) );
 
@@ -390,11 +390,12 @@ void h2mdk::_purge()
   delay( _purgeTime);
   digitalWrite( PURGE, _ni(LOW) );
 
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     //disconnect load
     digitalWrite( LOAD, _ni(HIGH) );
 }
 
+//short circuit the stack to keep the temperature right
 void h2mdk::_shortCircuit()
 {
   if( _doShort == false )
@@ -409,8 +410,8 @@ void h2mdk::_shortCircuit()
   }
   Serial.println("SHORT-CIRCUIT");
 
-  if( _version == V3W || _version == V1_5W )
-    //disconnect load
+  //disconnect load if we can
+  if( _stacksize == V3W || _stacksize == V1_5W )
     digitalWrite( LOAD, _ni(LOW) );
 
   //short circuit
@@ -418,21 +419,65 @@ void h2mdk::_shortCircuit()
   delay(_shortTime);
   digitalWrite( SHORT, _ni(LOW) );
 
-  if( _version == V3W || _version == V1_5W )
-    //reconnect
+  //reconnect load if we can
+  if( _stacksize == V3W || _stacksize == V1_5W )
     digitalWrite( LOAD, _ni(HIGH) );
 }
 
-//utility to invert the mosfet pins for the 12 and 30W control boards
+//utility function to show the timings that have been set
+void h2mdk::_printTimings()
+{
+  Serial.print("Short-circuit: ");
+  Serial.print(_shortTime);
+  Serial.print("ms every ");
+  Serial.print(_shortCircuitInterval / 1000);
+  Serial.println(" s");
+
+  Serial.print("Purge: ");
+  Serial.print(_purgeTime);
+  Serial.print("ms every ");
+  Serial.print( _purgeInterval / 1000);
+  Serial.println(" s");
+
+    //double blink to show we've started
+  _blink(); delay(100); _blink(); delay(100); _blink(); delay(100);
+
+  //wait for cap to charge
+  Serial.println( "waiting for caps to charge" );
+  _checkCaps();
+}
+
+//returns stack voltage
+float h2mdk::getVoltage()
+{
+  return _voltage;
+}
+
+//returns stack current
+float h2mdk::getCurrent()
+{
+  return _current;
+}
+
+//prints a status message
+void h2mdk::status()
+{
+  Serial.print( _voltage );
+  Serial.print( "V, " );
+  Serial.print( _current );
+  Serial.println( "A" );
+}
+
+//utility to invert the mosfet pins for the older version 12 and 30W control boards
 inline bool h2mdk::_ni(bool state)
 {
-  if( _version == V3W || _version == V1_5W )
+  if( _stacksize == V3W || _stacksize == V1_5W )
     return state;
-  if( _version == V12W || _version == V30W )
+  if( _stacksize == V12W || _stacksize == V30W )
   {
-    if( _hardware == V1 )
+    if( _shield == V1_0 )
       return ! state;
-    else if (_hardware == V2 )
+    else if (_shield == V1_3 )
       return state;
   }
 }

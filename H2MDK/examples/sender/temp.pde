@@ -1,5 +1,3 @@
-
-
 void checkTemp() {
 
   byte i;
