@@ -190,6 +190,10 @@ void h2mdk::start()
   _electTimer = 0;
   _statusTimer = 0;
   
+  //enable purge and short circuit by default
+  _doShort = true;
+  _doPurge = true; 
+  
   //setup default timings
   _initializeTimings();
 
@@ -255,7 +259,6 @@ void h2mdk::start()
   _checkCaps();
 }
 
-<<<<<<< HEAD
 //allow user to control whether we are shorting/purging
 void h2mdk::disableShort()
 {
@@ -292,9 +295,7 @@ void h2mdk::status()
   Serial.println( "A" );
 }
 
-=======
 //deals with all the timing. Should be called about every 100ms
->>>>>>> 0078c1b5257dd3722c0cc0a1741659d4dc963f9e
 void h2mdk::poll()
 {
   int interval = millis() - _lastPoll;
@@ -370,6 +371,7 @@ void h2mdk::_updateElect()
   else if( _stacksize == V12W || _stacksize == V30W )
     //current sense chip is powered by arduino supply
     _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
+	
 }
 
 //purge the waste gas in the stack
@@ -447,26 +449,7 @@ void h2mdk::_printTimings()
   _checkCaps();
 }
 
-//returns stack voltage
-float h2mdk::getVoltage()
-{
-  return _voltage;
-}
 
-//returns stack current
-float h2mdk::getCurrent()
-{
-  return _current;
-}
-
-//prints a status message
-void h2mdk::status()
-{
-  Serial.print( _voltage );
-  Serial.print( "V, " );
-  Serial.print( _current );
-  Serial.println( "A" );
-}
 
 //utility to invert the mosfet pins for the older version 12 and 30W control boards
 inline bool h2mdk::_ni(bool state)
