@@ -1,6 +1,6 @@
 # Arcola Energy Fuel Cell Inventor Kit
 
-The latest library is [v1.4](H2MDK_v1.4.zip)
+The latest library is [v1.4](https://github.com/ArcolaEnergy/fuel-cell-inventor-kit/blob/master/H2MDK_v1.4.zip?raw=true)
 
 # Docs
 
