@@ -121,6 +121,7 @@ class h2mdk
     unsigned int _electTimer;
     unsigned long _purgeTimer;
     unsigned int _statusTimer;
+    unsigned int _lowStackV;
     unsigned long _lastPoll;
     float _filteredRawCurrent;
 
@@ -162,24 +163,28 @@ Short circuit: 100ms every 10s
     _shortTime = 100;
     _purgeInterval = 60000; //240000;
     _purgeTime = 100;
+    _lowStackV = 1;
 
   #elif( _stacksize == V3W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 60000; //240000;
     _purgeTime = 100;
+    _lowStackV = 1;
 
   #elif( _stacksize == V12W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 25000;
     _purgeTime = 100;
+    _lowStackV = 7.5;
 
   #elif( _stacksize == V30W )
     _shortCircuitInterval = 10000;
     _shortTime = 100;
     _purgeInterval = 10000;
     _purgeTime = 100;
+    _lowStackV = 8;
   #else
   #endif
 }
@@ -255,7 +260,7 @@ void h2mdk::start()
   _printTimings();
 
   //wait for cap to charge
-  Serial.println( "waiting for caps to charge" );
+  Serial.println( "waiting for caps to charge - ensure fuelcell is operational!" );
   _checkCaps();
 }
 
@@ -299,6 +304,10 @@ void h2mdk::status()
 void h2mdk::poll()
 {
   int interval = millis() - _lastPoll;
+  //don't bother unless enough time has elapsed
+  if( interval < 100 )
+    return;
+
   _lastPoll = millis();
 
   _electTimer += interval;
@@ -371,7 +380,9 @@ void h2mdk::_updateElect()
   else if( _stacksize == V12W || _stacksize == V30W )
     //current sense chip is powered by arduino supply
     _current = ( currentMV - 5000 / 2 ) / 185; //185mv per amp
-	
+
+  if( _voltage < _lowStackV )
+    Serial.println("WARNING! stack voltage is too low!");
 }
 
 //purge the waste gas in the stack
@@ -441,12 +452,9 @@ void h2mdk::_printTimings()
   Serial.print( _purgeInterval / 1000);
   Serial.println(" s");
 
-    //double blink to show we've started
-  _blink(); delay(100); _blink(); delay(100); _blink(); delay(100);
-
-  //wait for cap to charge
-  Serial.println( "waiting for caps to charge" );
-  _checkCaps();
+  Serial.print("low stack voltage: ");
+  Serial.print(_lowStackV);
+  Serial.println(" V");
 }
 
 
