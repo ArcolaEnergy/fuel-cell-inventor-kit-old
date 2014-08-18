@@ -143,15 +143,15 @@ void h2mdk::overrideTimings( unsigned int sci, unsigned int st, unsigned long pi
 void h2mdk::_initializeTimings()
 {
 /*
-1.5W stack (info from Horizon)
+1.5W
 Purge: 100ms every 4 mins
 Short circuit: 100ms every 10s
 
-H-12 (no info from Horizon as they don't have H-12 controller)
-Purge: Shall we assume 50ms every 25s (because H2 consumption is less)
+H-12
+Purge: 50ms every 25s (because H2 consumption is less)
 Short circuit: 100ms every 10s (assuming same as other stacks)
 
-H-30 (info from Horizon)
+H-30
 Purge: 50ms every 10s
 Short circuit: 100ms every 10s
 */
