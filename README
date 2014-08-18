@@ -1,8 +1,10 @@
-software for the fuel cell inventor kit series of Arduino Shields
-for more information, see the website:
+# Arcola Energy Fuel Cell Inventor Kit
 
-http://www.arcolaenergy.com/h2mdk
+For more information, see the website:
 
-and docs
+http://arcolaenergy.com/collections/open-source-systems
 
-http://www.arcolaenergy.com/docs
+# Docs
+
+* 3W: http://resources.arcolaenergy.com/docs/Manuals/Developer_1.5-3_UM.pdf
+* 12W: http://resources.arcolaenergy.com/docs/Manuals/Developer_12-30_UM.pdf
